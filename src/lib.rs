@@ -149,6 +149,44 @@ impl<T, U> These<T, U> {
     }
 }
 
+pub fn partition_these<T, U>(xs: Vec<These<T, U>>) -> (Vec<T>, Vec<U>, Vec<(T, U)>)
+{
+    let mut this: Vec<T> = Vec::new();
+    let mut that: Vec<U> = Vec::new();
+    let mut these: Vec<(T, U)> = Vec::new();
+
+    for x in xs
+    {
+        x.these(
+            |t| this.push(t),
+            |u| that.push(u),
+            |t, u| these.push((t, u)),
+        )
+    }
+
+    (this, that, these)
+}
+
+pub fn partition_here_there<T, U>(xs: Vec<These<T, U>>) -> (Vec<T>, Vec<U>)
+{
+    let mut this: Vec<T> = Vec::new();
+    let mut that: Vec<U> = Vec::new();
+
+    for x in xs
+    {
+        match x {
+            These::This(t) => this.push(t),
+            These::That(u) => that.push(u),
+            These::These(t,u) => {
+                this.push(t);
+                that.push(u)
+            },
+        }
+    }
+
+    (this, that)
+}
+
 #[cfg(test)]
 mod tests {
     use crate::These;
