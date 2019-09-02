@@ -191,9 +191,97 @@ pub fn partition_here_there<T, U>(xs: Vec<These<T, U>>) -> (Vec<T>, Vec<U>)
 mod tests {
     use crate::These;
 
-    #[test]
-    fn it_works() {
-        let test_val: These<i8, i8> = These::That(2);
-        assert_eq!(test_val.map(|x| x + 1), These::That(3));
+    #[cfg(test)]
+    mod map {
+        use super::*;
+
+        #[test]
+        fn this() {
+            let test_val: These<i8, i8> = These::This(2);
+            assert_eq!(test_val.map(|x| x + 1), These::This(2));
+        }
+
+        #[test]
+        fn that() {
+            let test_val: These<i8, i8> = These::That(2);
+            assert_eq!(test_val.map(|x| x + 1), These::That(3));
+        }
+
+        #[test]
+        fn these() {
+            let test_val: These<i8, i8> = These::These(2, 2);
+            assert_eq!(test_val.map(|x| x + 1), These::These(2, 3));
+        }
+    }
+
+    #[cfg(test)]
+    mod is_this {
+        use super::*;
+
+        #[test]
+        fn this() {
+            let test_val: These<i8, i8> = These::This(2);
+            assert!(test_val.is_this())
+        }
+
+        #[test]
+        fn not_that() {
+            let test_val: These<i8, i8> = These::That(2);
+            assert!(!test_val.is_this())
+        }
+
+        #[test]
+        fn not_these() {
+            let test_val: These<i8, i8> = These::These(2, 2);
+            assert!(!test_val.is_this())
+        }
+    }
+
+    #[cfg(test)]
+    mod is_that
+    {
+        use super::*;
+
+        #[test]
+        fn not_this() {
+            let test_val: These<i8, i8> = These::This(2);
+            assert!(!test_val.is_that())
+        }
+
+        #[test]
+        fn that() {
+            let test_val: These<i8, i8> = These::That(2);
+            assert!(test_val.is_that())
+        }
+
+        #[test]
+        fn not_these() {
+            let test_val: These<i8, i8> = These::These(2, 2);
+            assert!(!test_val.is_that())
+        }
+    }
+
+    #[cfg(test)]
+    mod is_these
+    {
+        use super::*;
+
+        #[test]
+        fn not_this() {
+            let test_val: These<i8, i8> = These::This(2);
+            assert!(!test_val.is_these())
+        }
+
+        #[test]
+        fn not_that() {
+            let test_val: These<i8, i8> = These::That(2);
+            assert!(!test_val.is_these())
+        }
+
+        #[test]
+        fn these() {
+            let test_val: These<i8, i8> = These::These(2, 2);
+            assert!(test_val.is_these())
+        }
     }
 }
