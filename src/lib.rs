@@ -1,5 +1,5 @@
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug, Hash)]
 pub enum These<T, U> {
     This(T),
     That(U),
@@ -239,6 +239,22 @@ impl<T, U> These<T, U> {
         )
     }
 
+    /// Produce a `Some` from `This`, otherwise return `None`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use these::These;
+    ///
+    /// let this: These<&str, i8> = These::This("Hello");
+    /// assert_eq!(this.this_option(), Some("Hello"));
+    ///
+    /// let that: These<&str, i8> = These::That(42);
+    /// assert_eq!(that.this_option(), None);
+    ///
+    /// let these: These<&str, i8> = These::These("Hello", 42);
+    /// assert_eq!(these.this_option(), None);
+    /// ```
     pub fn this_option(self) -> Option<T>
     {
         self.collapse_these(
@@ -248,6 +264,22 @@ impl<T, U> These<T, U> {
         )
     }
 
+    /// Produce a `Some` from `That`, otherwise return `None`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use these::These;
+    ///
+    /// let this: These<&str, i8> = These::This("Hello");
+    /// assert_eq!(this.that_option(), None);
+    ///
+    /// let that: These<&str, i8> = These::That(42);
+    /// assert_eq!(that.that_option(), Some(42));
+    ///
+    /// let these: These<&str, i8> = These::These("Hello", 42);
+    /// assert_eq!(these.that_option(), None);
+    /// ```
     pub fn that_option(self) -> Option<U>
     {
         self.collapse_these(
@@ -257,6 +289,22 @@ impl<T, U> These<T, U> {
         )
     }
 
+    /// Produce a `Some` from `These`, otherwise return `None`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use these::These;
+    ///
+    /// let this: These<&str, i8> = These::This("Hello");
+    /// assert_eq!(this.these_option(), None);
+    ///
+    /// let that: These<&str, i8> = These::That(42);
+    /// assert_eq!(that.these_option(), None);
+    ///
+    /// let these: These<&str, i8> = These::These("Hello", 42);
+    /// assert_eq!(these.these_option(), Some(("Hello", 42)));
+    /// ```
     pub fn these_option(self) -> Option<(T, U)>
     {
         self.collapse_these(
@@ -266,6 +314,23 @@ impl<T, U> These<T, U> {
         )
     }
 
+    /// Produce a `Some` if a `This` or `These` is found,
+    /// otherwise `None`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use these::These;
+    ///
+    /// let this: These<&str, i8> = These::This("Hello");
+    /// assert_eq!(this.here_option(), Some("Hello"));
+    ///
+    /// let that: These<&str, i8> = These::That(42);
+    /// assert_eq!(that.here_option(), None);
+    ///
+    /// let these: These<&str, i8> = These::These("Hello", 42);
+    /// assert_eq!(these.here_option(), Some("Hello"));
+    /// ```
     pub fn here_option(self) -> Option<T>
     {
         self.collapse_these(
@@ -275,6 +340,23 @@ impl<T, U> These<T, U> {
         )
     }
 
+    /// Produce a `Some` if a `That` or `These` is found,
+    /// otherwise `None`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use these::These;
+    ///
+    /// let this: These<&str, i8> = These::This("Hello");
+    /// assert_eq!(this.there_option(), None);
+    ///
+    /// let that: These<&str, i8> = These::That(42);
+    /// assert_eq!(that.there_option(), Some(42));
+    ///
+    /// let these: These<&str, i8> = These::These("Hello", 42);
+    /// assert_eq!(these.there_option(), Some(42));
+    /// ```
     pub fn there_option(self) -> Option<U>
     {
         self.collapse_these(
@@ -284,69 +366,172 @@ impl<T, U> These<T, U> {
         )
     }
 
+    /// Is it `This`?
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use these::These;
+    ///
+    /// let this: These<&str, i8> = These::This("Hello");
+    /// assert_eq!(this.is_this(), true);
+    ///
+    /// let that: These<&str, i8> = These::That(42);
+    /// assert_eq!(that.is_this(), false);
+    ///
+    /// let these: These<&str, i8> = These::These("Hello", 42);
+    /// assert_eq!(these.is_this(), false);
+    /// ```
     pub fn is_this(self) -> bool
     {
         self.this_option().is_some()
     }
 
+    /// Is it `That`?
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use these::These;
+    ///
+    /// let this: These<&str, i8> = These::This("Hello");
+    /// assert_eq!(this.is_that(), false);
+    ///
+    /// let that: These<&str, i8> = These::That(42);
+    /// assert_eq!(that.is_that(), true);
+    ///
+    /// let these: These<&str, i8> = These::These("Hello", 42);
+    /// assert_eq!(these.is_that(), false);
+    /// ```
     pub fn is_that(self) -> bool
     {
         self.that_option().is_some()
     }
 
+    /// Is it `These`?
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use these::These;
+    ///
+    /// let this: These<&str, i8> = These::This("Hello");
+    /// assert_eq!(this.is_these(), false);
+    ///
+    /// let that: These<&str, i8> = These::That(42);
+    /// assert_eq!(that.is_these(), false);
+    ///
+    /// let these: These<&str, i8> = These::These("Hello", 42);
+    /// assert_eq!(these.is_these(), true);
+    /// ```
     pub fn is_these(self) -> bool
     {
         self.these_option().is_some()
     }
 
+    /// Is it `Here`, i.e. `This` or `These`?
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use these::These;
+    ///
+    /// let this: These<&str, i8> = These::This("Hello");
+    /// assert_eq!(this.is_here(), true);
+    ///
+    /// let that: These<&str, i8> = These::That(42);
+    /// assert_eq!(that.is_here(), false);
+    ///
+    /// let these: These<&str, i8> = These::These("Hello", 42);
+    /// assert_eq!(these.is_here(), true);
+    /// ```
     pub fn is_here(self) -> bool
     {
         self.here_option().is_some()
     }
 
+    /// Is it `There`, i.e. `That` or `These`?
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use these::These;
+    ///
+    /// let this: These<&str, i8> = These::This("Hello");
+    /// assert_eq!(this.is_there(), false);
+    ///
+    /// let that: These<&str, i8> = These::That(42);
+    /// assert_eq!(that.is_there(), true);
+    ///
+    /// let these: These<&str, i8> = These::These("Hello", 42);
+    /// assert_eq!(these.is_there(), true);
+    /// ```
     pub fn is_there(self) -> bool
     {
         self.there_option().is_some()
     }
-}
 
-pub fn partition_these<T, U>(xs: Vec<These<T, U>>) -> (Vec<T>, Vec<U>, Vec<(T, U)>)
-{
-    let mut this: Vec<T> = Vec::new();
-    let mut that: Vec<U> = Vec::new();
-    let mut these: Vec<(T, U)> = Vec::new();
-
-    for x in xs
+    /// When given a `Vec` of `These` it will split it into three separate `Vec`s, each
+    /// containing the `This`, `That`, or `These` inner values.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use these::These;
+    ///
+    /// let xs = vec![These::This(1), These::That("Hello"), These::These(42, "World")];
+    /// assert_eq!(These::partition_these(xs), (vec![1], vec!["Hello"], vec![(42, "World")]));
+    /// ```
+    pub fn partition_these(xs: Vec<These<T, U>>) -> (Vec<T>, Vec<U>, Vec<(T, U)>)
     {
-        x.collapse_these(
-            |t| this.push(t),
-            |u| that.push(u),
-            |t, u| these.push((t, u)),
-        )
-    }
+        let mut this: Vec<T> = Vec::new();
+        let mut that: Vec<U> = Vec::new();
+        let mut these: Vec<(T, U)> = Vec::new();
 
-    (this, that, these)
-}
-
-pub fn partition_here_there<T, U>(xs: Vec<These<T, U>>) -> (Vec<T>, Vec<U>)
-{
-    let mut this: Vec<T> = Vec::new();
-    let mut that: Vec<U> = Vec::new();
-
-    for x in xs
-    {
-        match x {
-            These::This(t) => this.push(t),
-            These::That(u) => that.push(u),
-            These::These(t,u) => {
-                this.push(t);
-                that.push(u)
-            },
+        for x in xs
+        {
+            x.collapse_these(
+                |t| this.push(t),
+                |u| that.push(u),
+                |t, u| these.push((t, u)),
+            )
         }
+
+        (this, that, these)
     }
 
-    (this, that)
+    /// When given a `Vec` of `These` it will split it into two separate `Vec`s, each
+    /// containing the `T` or `U` inner values.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use these::These;
+    ///
+    /// let xs = vec![These::This(1), These::That("Hello"), These::These(42, "World")];
+    /// assert_eq!(These::partition_here_there(xs), (vec![1, 42], vec!["Hello", "World"]));
+    /// ```
+    pub fn partition_here_there(xs: Vec<These<T, U>>) -> (Vec<T>, Vec<U>)
+    {
+        let mut this: Vec<T> = Vec::new();
+        let mut that: Vec<U> = Vec::new();
+
+        for x in xs
+        {
+            match x {
+                These::This(t) => this.push(t),
+                These::That(u) => that.push(u),
+                These::These(t,u) => {
+                    this.push(t);
+                    that.push(u)
+                },
+            }
+        }
+
+        (this, that)
+    }
 }
+
 
 #[cfg(test)]
 mod tests {
