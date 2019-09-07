@@ -1,4 +1,137 @@
 
+//! # These
+//!
+//! [`These`] represents a 3-way split of data. Think of it as a [`Result`]
+//! except that we have an extra case that can contain both the result `T` and
+//! the error `E`. This can be useful for when we can still compute the final result
+//! but we have also encountered an error.
+//!
+//! ```
+//! enum These<T, U> {
+//!     This(T),
+//!     That(U),
+//!     These(T, U)
+//! }
+//! ```
+//!
+//! We have three constructors [`This`] which holds a `T`, [`That`] which holds a `U`,
+//! and [`These`] which holds both.
+//!
+//! # Here and There
+//!
+//! If we want to talk about all `T`s we use the terminology `Here`. So this
+//! means we either have a [`This`] or [`These`]. Or in code:
+//!
+//! ```
+//! use these::These;
+//!
+//! fn is_here<T: Copy, U: Copy>(these: &These<T, U>) -> bool {
+//!     these.is_this() || these.is_these()
+//! }
+//! ```
+//!
+//! If we want to talk about all `U`s we use the terminology `There`. So this
+//! means we either have a [`That`] or [`These`]. Or in code
+//!
+//! ```
+//! use these::These;
+//!
+//! fn is_here<T: Copy, U: Copy>(these: These<T, U>) -> bool {
+//!     these.is_that() || these.is_these()
+//! }
+//! ```
+//!
+//! # Contrived Example
+//!
+//! Let us say that we have a function that only allows numbers that are less than
+//! 10. We expose a new type `LessThanTen` and expect our users to use `is_less_than_ten`
+//! to validate `i8`s into this type. We can use `Result` and model this below:
+//!
+//! ```
+//! #[derive(Debug, PartialEq)]
+//! struct LessThanTen(i8);
+//!
+//! #[derive(Debug, PartialEq)]
+//! pub enum Error {
+//!     IsGreaterThanOrEqualToTen,
+//! }
+//!
+//! pub fn is_less_than_ten(i: i8) -> Result<LessThanTen, Error> {
+//!     if i < 10 {
+//!         Ok(LessThanTen(i))
+//!     } else {
+//!         Err(Error::IsGreaterThanOrEqualToTen)
+//!     }
+//! }
+//!
+//! assert_eq!(is_less_than_ten(8), Ok(LessThanTen(8)));
+//! assert_eq!(is_less_than_ten(10), Err(Error::IsGreaterThanOrEqualToTen));
+//! ```
+//!
+//! But after a while we realise we can start to support all numbers that are less than 20.
+//! We can do a similar approach, but we would like to be backwards compatible, and also keep
+//! track of when we encounter numbers that are greater than 10. Maybe we would like to keep
+//! statistics on these errors, or convert successful results to `LessThanTen` for backwards
+//! compatibility. We can use [`These`] to solve this and can modelled as below:
+//!
+//! ```
+//! use these::These;
+//!
+//! #[derive(Debug, PartialEq)]
+//! struct LessThanTen(i8);
+//!
+//! #[derive(Debug, PartialEq)]
+//! struct LessThanTwenty(i8);
+//!
+//! #[derive(Debug, PartialEq)]
+//! pub enum Error {
+//!     IsGreaterThanOrEqualToTen,
+//!     IsGreaterThanOrEqualToTwenty,
+//! }
+//!
+//! pub fn is_less_than_ten(i: i8) -> Result<LessThanTen, Error> {
+//!     if i < 10 {
+//!         Ok(LessThanTen(i))
+//!     } else {
+//!         Err(Error::IsGreaterThanOrEqualToTen)
+//!     }
+//! }
+//!
+//! pub fn is_less_than_twenty(i: i8) -> These<Error, LessThanTwenty> {
+//!     if i < 10 {
+//!         These::That(LessThanTwenty(i))
+//!     } else if i < 20 {
+//!         These::These(Error::IsGreaterThanOrEqualToTen, LessThanTwenty(i))
+//!     } else {
+//!         These::This(Error::IsGreaterThanOrEqualToTwenty)
+//!     }
+//! }
+//!
+//! // Convert to the backwards compatible scenario
+//! pub fn backwards_compatible(r: These<Error, LessThanTwenty>) -> Result<LessThanTen, Error> {
+//!     r.collapse_these(
+//!         |e| Err(e),
+//!         |LessThanTwenty(i)| Ok(LessThanTen(i)),
+//!         |e, _| Err(e),
+//!     )
+//! }
+//!
+//! assert_eq!(is_less_than_ten(8), Ok(LessThanTen(8)));
+//! assert_eq!(is_less_than_ten(10), Err(Error::IsGreaterThanOrEqualToTen));
+//! assert_eq!(is_less_than_twenty(8), These::That(LessThanTwenty(8)));
+//! assert_eq!(is_less_than_twenty(10), These::These(Error::IsGreaterThanOrEqualToTen, LessThanTwenty(10)));
+//! assert_eq!(is_less_than_twenty(20), These::This(Error::IsGreaterThanOrEqualToTwenty));
+//!
+//! assert_eq!(backwards_compatible(is_less_than_twenty(8)), Ok(LessThanTen(8)));
+//! ```
+//!
+//! [`These`]: enum.These.html
+//! [`This`]: enum.These.html#variant.This
+//! [`That`]: enum.These.html#variant.That
+//! [`These`]: enum.These.html#variant.These
+
+
+
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug, Hash)]
 pub enum These<T, U> {
     This(T),
@@ -8,11 +141,11 @@ pub enum These<T, U> {
 
 impl<T, U> These<T, U> {
 
-    /// Collapse a `These` value given a set of three functions to
+    /// Collapse a [`These`](enum.These.html) value given a set of three functions to
     /// some target type.
     ///
-    /// The first function will apply to `This`, the second to `That`,
-    /// and the third to `These`.
+    /// The first function will apply to [`This`], the second to [`That`],
+    /// and the third to [`These`].
     ///
     /// This can be thought of as matching on the value and applying the
     /// functions, but removes the need to match.
@@ -36,6 +169,10 @@ impl<T, U> These<T, U> {
     /// let these: These<&str, usize> = These::These("Hello", 42);
     /// assert_eq!(these.collapse_these(f, g, h), 47);
     /// ```
+    ///
+    /// [`This`]: enum.These.html#variant.This
+    /// [`That`]: enum.These.html#variant.That
+    /// [`These`]: enum.These.html#variant.These
     pub fn collapse_these<V, F, G, H>(self, f: F, g: G, h: H) -> V
         where F: FnOnce(T) -> V,
               G: FnOnce(U) -> V,
@@ -49,7 +186,7 @@ impl<T, U> These<T, U> {
     }
 
     /// Apply the function to the `U` value if the data is
-    /// a `That` or `These`.
+    /// [`That`] or [`These`].
     ///
     /// # Examples
     ///
@@ -65,6 +202,9 @@ impl<T, U> These<T, U> {
     /// let these: These<&str, i8> = These::These("Hello", 1);
     /// assert_eq!(these.map(|x| x + 1), These::These("Hello", 2));
     /// ```
+    ///
+    /// [`That`]: enum.These.html#variant.That
+    /// [`These`]: enum.These.html#variant.These
     pub fn map<V, F>(self, op: F) -> These<T, V>
         where F: FnOnce(U) -> V + Copy,
     {
@@ -73,7 +213,7 @@ impl<T, U> These<T, U> {
 
 
     /// Apply the function to the `T` value if the data is
-    /// a `This` or `These`.
+    /// [`This`] or [`These`].
     ///
     /// # Examples
     ///
@@ -89,6 +229,9 @@ impl<T, U> These<T, U> {
     /// let these: These<&str, i8> = These::These("Hello", 1);
     /// assert_eq!(these.map_first(|s| s.len()), These::These(5, 1));
     /// ```
+    ///
+    /// [`This`]: enum.These.html#variant.This
+    /// [`These`]: enum.These.html#variant.These
     pub fn map_first<V, F>(self, op: F) -> These<V, U>
         where F: FnOnce(T) -> V + Copy,
     {
@@ -96,7 +239,7 @@ impl<T, U> These<T, U> {
     }
 
     /// Apply the function to the `U` value if the data is
-    /// a `That` or `These`. This is the same as `map`.
+    /// [`That`] or [`These`]. This is the same as `map`.
     ///
     /// # Examples
     ///
@@ -112,6 +255,9 @@ impl<T, U> These<T, U> {
     /// let these: These<&str, i8> = These::These("Hello", 1);
     /// assert_eq!(these.map_second(|i| i + 1), These::These("Hello", 2));
     /// ```
+    ///
+    /// [`That`]: enum.These.html#variant.That
+    /// [`These`]: enum.These.html#variant.These
     pub fn map_second<V, F>(self, op: F) -> These<T, V>
         where F: FnOnce(U) -> V + Copy,
     {
@@ -148,13 +294,13 @@ impl<T, U> These<T, U> {
         )
     }
 
-    /// Collapse the `These` value but using a default value
+    /// Collapse the [`These`](enum.These.hmtl) value but using a default value
     /// in place of `U` (ignoring any `U` values).
     ///
-    /// If `This` is found it will return the default value.
-    /// If `That` is found it will use the function with the value
-    /// contained in `That` along with the default.
-    /// If `These` is found it will use the function with the second element
+    /// If [`This`] is found it will return the default value.
+    /// If [`That`] is found it will use the function with the value
+    /// contained in [`That`] along with the default.
+    /// If [`These`] is found it will use the function with the second element
     /// along with the default, ignoring the first element.
     ///
     /// # Examples
@@ -173,6 +319,10 @@ impl<T, U> These<T, U> {
     /// let these: These<&str, i16> = These::These("Hello", 9);
     /// assert_eq!(these.fold_these(42, f), 378);
     /// ```
+    ///
+    /// [`This`]: enum.These.html#variant.This
+    /// [`That`]: enum.These.html#variant.That
+    /// [`These`]: enum.These.html#variant.These
     pub fn fold_these<V, F>(self, default: V, op: F) -> V
         where F: FnOnce(U, V) -> V + Copy,
               V: Copy
@@ -184,8 +334,8 @@ impl<T, U> These<T, U> {
         )
     }
 
-    /// Create a tuple given some `These` value. In the case of `This`
-    /// or `That` it will use the default values provided.
+    /// Create a tuple given a [`These`] value. In the case of [`This`]
+    /// or [`That`] it will use the default values provided.
     ///
     /// # Examples
     ///
@@ -201,6 +351,10 @@ impl<T, U> These<T, U> {
     /// let these: These<&str, i8> = These::These("Hello", 42);
     /// assert_eq!(these.from_these("World", 42), ("Hello", 42));
     /// ```
+    ///
+    /// [`These`]: enum.These.html
+    /// [`This`]: enum.These.html#variant.This
+    /// [`That`]: enum.These.html#variant.That
     pub fn from_these(self, t_default: T, u_default: U) -> (T, U)
     {
         self.collapse_these(
@@ -210,11 +364,11 @@ impl<T, U> These<T, U> {
         )
     }
 
-    /// Swap the types of values of a `These` value.
+    /// Swap the types of values of a [`These`](enum.These.html) value.
     ///
-    /// `This` turns into `That`.
-    /// `That` turns into `This`.
-    /// `These` values swap their order.
+    /// [`This`] turns into [`That`].
+    /// [`That`] turns into [`This`].
+    /// [`These`] values swap their order.
     ///
     /// # Examples
     ///
@@ -230,6 +384,10 @@ impl<T, U> These<T, U> {
     /// let these: These<&str, i8> = These::These("Hello", 42);
     /// assert_eq!(these.swap_these(), These::These(42, "Hello"));
     /// ```
+    ///
+    /// [`This`]: enum.These.html#variant.This
+    /// [`That`]: enum.These.html#variant.That
+    /// [`These`]: enum.These.html#variant.These
     pub fn swap_these(self) -> These<U, T>
     {
         self.collapse_these(
@@ -239,7 +397,7 @@ impl<T, U> These<T, U> {
         )
     }
 
-    /// Produce a `Some` from `This`, otherwise return `None`.
+    /// Produce a [`Some`] from [`This`], otherwise return [`None`].
     ///
     /// # Examples
     ///
@@ -255,6 +413,11 @@ impl<T, U> These<T, U> {
     /// let these: These<&str, i8> = These::These("Hello", 42);
     /// assert_eq!(these.this_option(), None);
     /// ```
+    ///
+    /// [`This`]: enum.These.html#variant.This
+    /// [`These`]: enum.These.html#variant.These
+    /// [`Some`]: enum.Option.html#variant.Some
+    /// [`None`]: enum.Option.html#variant.Some
     pub fn this_option(self) -> Option<T>
     {
         self.collapse_these(
@@ -264,7 +427,7 @@ impl<T, U> These<T, U> {
         )
     }
 
-    /// Produce a `Some` from `That`, otherwise return `None`.
+    /// Produce a [`Some`] from [`That`], otherwise return [`None`].
     ///
     /// # Examples
     ///
@@ -280,6 +443,10 @@ impl<T, U> These<T, U> {
     /// let these: These<&str, i8> = These::These("Hello", 42);
     /// assert_eq!(these.that_option(), None);
     /// ```
+    ///
+    /// [`That`]: enum.These.html#variant.That
+    /// [`Some`]: enum.Option.html#variant.Some
+    /// [`None`]: enum.Option.html#variant.Some
     pub fn that_option(self) -> Option<U>
     {
         self.collapse_these(
@@ -289,7 +456,7 @@ impl<T, U> These<T, U> {
         )
     }
 
-    /// Produce a `Some` from `These`, otherwise return `None`.
+    /// Produce a [`Some`] from [`These`], otherwise return [`None`].
     ///
     /// # Examples
     ///
@@ -305,6 +472,10 @@ impl<T, U> These<T, U> {
     /// let these: These<&str, i8> = These::These("Hello", 42);
     /// assert_eq!(these.these_option(), Some(("Hello", 42)));
     /// ```
+    ///
+    /// [`These`]: enum.These.html#variant.These
+    /// [`Some`]: enum.Option.html#variant.Some
+    /// [`None`]: enum.Option.html#variant.Some
     pub fn these_option(self) -> Option<(T, U)>
     {
         self.collapse_these(
@@ -314,8 +485,8 @@ impl<T, U> These<T, U> {
         )
     }
 
-    /// Produce a `Some` if a `This` or `These` is found,
-    /// otherwise `None`.
+    /// Produce a [`Some`] if a [`This`] or [`These`] is found,
+    /// otherwise [`None`].
     ///
     /// # Examples
     ///
@@ -331,6 +502,11 @@ impl<T, U> These<T, U> {
     /// let these: These<&str, i8> = These::These("Hello", 42);
     /// assert_eq!(these.here_option(), Some("Hello"));
     /// ```
+    ///
+    /// [`This`]: enum.These.html#variant.This
+    /// [`These`]: enum.These.html#variant.These
+    /// [`Some`]: enum.Option.html#variant.Some
+    /// [`None`]: enum.Option.html#variant.Some
     pub fn here_option(self) -> Option<T>
     {
         self.collapse_these(
@@ -340,8 +516,8 @@ impl<T, U> These<T, U> {
         )
     }
 
-    /// Produce a `Some` if a `That` or `These` is found,
-    /// otherwise `None`.
+    /// Produce a [`Some`] if a [`That`] or [`These`] is found,
+    /// otherwise [`None`].
     ///
     /// # Examples
     ///
@@ -357,6 +533,11 @@ impl<T, U> These<T, U> {
     /// let these: These<&str, i8> = These::These("Hello", 42);
     /// assert_eq!(these.there_option(), Some(42));
     /// ```
+    ///
+    /// [`That`]: enum.These.html#variant.That
+    /// [`These`]: enum.These.html#variant.These
+    /// [`Some`]: enum.Option.html#variant.Some
+    /// [`None`]: enum.Option.html#variant.Some
     pub fn there_option(self) -> Option<U>
     {
         self.collapse_these(
@@ -366,7 +547,7 @@ impl<T, U> These<T, U> {
         )
     }
 
-    /// Is it `This`?
+    /// Is it [`This`]?
     ///
     /// # Examples
     ///
@@ -382,12 +563,14 @@ impl<T, U> These<T, U> {
     /// let these: These<&str, i8> = These::These("Hello", 42);
     /// assert_eq!(these.is_this(), false);
     /// ```
+    ///
+    /// [`This`]: enum.These.html#variant.This
     pub fn is_this(self) -> bool
     {
         self.this_option().is_some()
     }
 
-    /// Is it `That`?
+    /// Is it [`That`]?
     ///
     /// # Examples
     ///
@@ -403,12 +586,14 @@ impl<T, U> These<T, U> {
     /// let these: These<&str, i8> = These::These("Hello", 42);
     /// assert_eq!(these.is_that(), false);
     /// ```
+    ///
+    /// [`That`]: enum.These.html#variant.That
     pub fn is_that(self) -> bool
     {
         self.that_option().is_some()
     }
 
-    /// Is it `These`?
+    /// Is it [`These`]?
     ///
     /// # Examples
     ///
@@ -424,12 +609,14 @@ impl<T, U> These<T, U> {
     /// let these: These<&str, i8> = These::These("Hello", 42);
     /// assert_eq!(these.is_these(), true);
     /// ```
+    ///
+    /// [`These`]: enum.These.html#variant.These
     pub fn is_these(self) -> bool
     {
         self.these_option().is_some()
     }
 
-    /// Is it `Here`, i.e. `This` or `These`?
+    /// Is it `Here`, i.e. [`This`] or [`These`]?
     ///
     /// # Examples
     ///
@@ -445,12 +632,15 @@ impl<T, U> These<T, U> {
     /// let these: These<&str, i8> = These::These("Hello", 42);
     /// assert_eq!(these.is_here(), true);
     /// ```
+    ///
+    /// [`This`]: enum.These.html#variant.This
+    /// [`These`]: enum.These.html#variant.These
     pub fn is_here(self) -> bool
     {
         self.here_option().is_some()
     }
 
-    /// Is it `There`, i.e. `That` or `These`?
+    /// Is it `There`, i.e. [`That`] or [`These`]?
     ///
     /// # Examples
     ///
@@ -466,13 +656,17 @@ impl<T, U> These<T, U> {
     /// let these: These<&str, i8> = These::These("Hello", 42);
     /// assert_eq!(these.is_there(), true);
     /// ```
+    ///
+    /// [`That`]: enum.These.html#variant.That
+    /// [`These`]: enum.These.html#variant.These
     pub fn is_there(self) -> bool
     {
         self.there_option().is_some()
     }
 
-    /// When given a `Vec` of `These` it will split it into three separate `Vec`s, each
-    /// containing the `This`, `That`, or `These` inner values.
+    /// When given a [`Vec`] of [`These`](enum.These.hmtl) it will split it into
+    /// three separate [`Vec`]s, each containing the [`This`], [`That`], or [`These`]
+    /// inner values.
     ///
     /// # Examples
     ///
@@ -482,6 +676,10 @@ impl<T, U> These<T, U> {
     /// let xs = vec![These::This(1), These::That("Hello"), These::These(42, "World")];
     /// assert_eq!(These::partition_these(xs), (vec![1], vec!["Hello"], vec![(42, "World")]));
     /// ```
+    ///
+    /// [`This`]: enum.These.html#variant.This
+    /// [`That`]: enum.These.html#variant.That
+    /// [`These`]: enum.These.html#variant.These
     pub fn partition_these(xs: Vec<These<T, U>>) -> (Vec<T>, Vec<U>, Vec<(T, U)>)
     {
         let mut this: Vec<T> = Vec::new();
@@ -500,8 +698,8 @@ impl<T, U> These<T, U> {
         (this, that, these)
     }
 
-    /// When given a `Vec` of `These` it will split it into two separate `Vec`s, each
-    /// containing the `T` or `U` inner values.
+    /// When given a [`Vec`] of [`These`](enum.These.html) it will split it into
+    /// two separate `Vec`s, each containing the `T` or `U` inner values.
     ///
     /// # Examples
     ///
@@ -529,105 +727,5 @@ impl<T, U> These<T, U> {
         }
 
         (this, that)
-    }
-}
-
-
-#[cfg(test)]
-mod tests {
-    use crate::These;
-
-    #[cfg(test)]
-    mod map {
-        use super::*;
-
-        #[test]
-        fn this() {
-            let test_val: These<i8, i8> = These::This(2);
-            assert_eq!(test_val.map(|x| x + 1), These::This(2));
-        }
-
-        #[test]
-        fn that() {
-            let test_val: These<i8, i8> = These::That(2);
-            assert_eq!(test_val.map(|x| x + 1), These::That(3));
-        }
-
-        #[test]
-        fn these() {
-            let test_val: These<i8, i8> = These::These(2, 2);
-            assert_eq!(test_val.map(|x| x + 1), These::These(2, 3));
-        }
-    }
-
-    #[cfg(test)]
-    mod is_this {
-        use super::*;
-
-        #[test]
-        fn this() {
-            let test_val: These<i8, i8> = These::This(2);
-            assert!(test_val.is_this())
-        }
-
-        #[test]
-        fn not_that() {
-            let test_val: These<i8, i8> = These::That(2);
-            assert!(!test_val.is_this())
-        }
-
-        #[test]
-        fn not_these() {
-            let test_val: These<i8, i8> = These::These(2, 2);
-            assert!(!test_val.is_this())
-        }
-    }
-
-    #[cfg(test)]
-    mod is_that
-    {
-        use super::*;
-
-        #[test]
-        fn not_this() {
-            let test_val: These<i8, i8> = These::This(2);
-            assert!(!test_val.is_that())
-        }
-
-        #[test]
-        fn that() {
-            let test_val: These<i8, i8> = These::That(2);
-            assert!(test_val.is_that())
-        }
-
-        #[test]
-        fn not_these() {
-            let test_val: These<i8, i8> = These::These(2, 2);
-            assert!(!test_val.is_that())
-        }
-    }
-
-    #[cfg(test)]
-    mod is_these
-    {
-        use super::*;
-
-        #[test]
-        fn not_this() {
-            let test_val: These<i8, i8> = These::This(2);
-            assert!(!test_val.is_these())
-        }
-
-        #[test]
-        fn not_that() {
-            let test_val: These<i8, i8> = These::That(2);
-            assert!(!test_val.is_these())
-        }
-
-        #[test]
-        fn these() {
-            let test_val: These<i8, i8> = These::These(2, 2);
-            assert!(test_val.is_these())
-        }
     }
 }
