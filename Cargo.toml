@@ -3,6 +3,8 @@ name = "these"
 version = "0.1.0"
 authors = ["FintanH <fintan.halpenny@gmail.com>"]
 edition = "2018"
+description = "A three-way enum capturing This, That, or These. Inspired by the Haskell package https://hackage.haskell.org/package/these"
+license = "GPL-3.0-or-later"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
