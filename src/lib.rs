@@ -206,7 +206,7 @@ impl<T, U> These<T, U> {
     /// [`That`]: enum.These.html#variant.That
     /// [`These`]: enum.These.html#variant.These
     pub fn map<V, F>(self, op: F) -> These<T, V>
-        where F: FnOnce(U) -> V + Copy,
+        where F: FnOnce(U) -> V,
     {
         self.map_both(|x| x, op)
     }
@@ -233,9 +233,9 @@ impl<T, U> These<T, U> {
     /// [`This`]: enum.These.html#variant.This
     /// [`These`]: enum.These.html#variant.These
     pub fn map_first<V, F>(self, op: F) -> These<V, U>
-        where F: FnOnce(T) -> V + Copy,
+        where F: FnOnce(T) -> V,
     {
-        self.map_both(op, |x| x,)
+        self.map_both(op, |x| x)
     }
 
     /// Apply the function to the `U` value if the data is
@@ -259,7 +259,7 @@ impl<T, U> These<T, U> {
     /// [`That`]: enum.These.html#variant.That
     /// [`These`]: enum.These.html#variant.These
     pub fn map_second<V, F>(self, op: F) -> These<T, V>
-        where F: FnOnce(U) -> V + Copy,
+        where F: FnOnce(U) -> V,
     {
         self.map(op)
     }
@@ -284,14 +284,14 @@ impl<T, U> These<T, U> {
     /// assert_eq!(these.map_both(f, g), These::These(5, 81));
     /// ```
     pub fn map_both<V, W, F, G>(self, f: F, g: G) -> These<V, W>
-        where F: FnOnce(T) -> V + Copy,
-              G: FnOnce(U) -> W + Copy,
+        where F: FnOnce(T) -> V,
+              G: FnOnce(U) -> W,
     {
-        self.collapse_these(
-            |t| These::This(f(t)),
-            |u| These::That(g(u)),
-            |t, u| These::These(f(t), g(u)),
-        )
+        match self {
+            These::This(t) => These::This(f(t)),
+            These::That(u) => These::That(g(u)),
+            These::These(t, u) => These::These(f(t), g(u)),
+        }
     }
 
     /// Collapse the [`These`](enum.These.hmtl) value but using a default value
@@ -324,14 +324,13 @@ impl<T, U> These<T, U> {
     /// [`That`]: enum.These.html#variant.That
     /// [`These`]: enum.These.html#variant.These
     pub fn fold_these<V, F>(self, default: V, op: F) -> V
-        where F: FnOnce(U, V) -> V + Copy,
-              V: Copy
+        where F: FnOnce(U, V) -> V,
     {
-        self.collapse_these(
-            |_| default,
-            |u| op(u, default),
-            |_, u| op(u, default),
-        )
+        match self {
+            These::This(_) => default,
+            These::That(u) => op(u, default),
+            These::These(_, u) => op(u, default),
+        }
     }
 
     /// Create a tuple given a [`These`] value. In the case of [`This`]
@@ -391,8 +390,8 @@ impl<T, U> These<T, U> {
     pub fn swap_these(self) -> These<U, T>
     {
         self.collapse_these(
-            |t| These::That(t),
-            |u| These::This(u),
+            These::That,
+            These::This,
             |t, u| These::These(u, t),
         )
     }
@@ -405,26 +404,26 @@ impl<T, U> These<T, U> {
     /// use these::These;
     ///
     /// let this: These<&str, i8> = These::This("Hello");
-    /// assert_eq!(this.this_option(), Some("Hello"));
+    /// assert_eq!(this.this(), Some("Hello"));
     ///
     /// let that: These<&str, i8> = These::That(42);
-    /// assert_eq!(that.this_option(), None);
+    /// assert_eq!(that.this(), None);
     ///
     /// let these: These<&str, i8> = These::These("Hello", 42);
-    /// assert_eq!(these.this_option(), None);
+    /// assert_eq!(these.this(), None);
     /// ```
     ///
     /// [`This`]: enum.These.html#variant.This
     /// [`These`]: enum.These.html#variant.These
     /// [`Some`]: enum.Option.html#variant.Some
     /// [`None`]: enum.Option.html#variant.Some
-    pub fn this_option(self) -> Option<T>
+    pub fn this(self) -> Option<T>
     {
-        self.collapse_these(
-            |t| Some(t),
-            |_| None,
-            |_, _| None,
-        )
+        if let These::This(t) = self {
+            Some(t)
+        } else {
+            None
+        }
     }
 
     /// Produce a [`Some`] from [`That`], otherwise return [`None`].
@@ -435,25 +434,25 @@ impl<T, U> These<T, U> {
     /// use these::These;
     ///
     /// let this: These<&str, i8> = These::This("Hello");
-    /// assert_eq!(this.that_option(), None);
+    /// assert_eq!(this.that(), None);
     ///
     /// let that: These<&str, i8> = These::That(42);
-    /// assert_eq!(that.that_option(), Some(42));
+    /// assert_eq!(that.that(), Some(42));
     ///
     /// let these: These<&str, i8> = These::These("Hello", 42);
-    /// assert_eq!(these.that_option(), None);
+    /// assert_eq!(these.that(), None);
     /// ```
     ///
     /// [`That`]: enum.These.html#variant.That
     /// [`Some`]: enum.Option.html#variant.Some
     /// [`None`]: enum.Option.html#variant.Some
-    pub fn that_option(self) -> Option<U>
+    pub fn that(self) -> Option<U>
     {
-        self.collapse_these(
-            |_| None,
-            |u| Some(u),
-            |_, _| None,
-        )
+        if let These::That(u) = self {
+            Some(u)
+        } else {
+            None
+        }
     }
 
     /// Produce a [`Some`] from [`These`], otherwise return [`None`].
@@ -464,25 +463,25 @@ impl<T, U> These<T, U> {
     /// use these::These;
     ///
     /// let this: These<&str, i8> = These::This("Hello");
-    /// assert_eq!(this.these_option(), None);
+    /// assert_eq!(this.these(), None);
     ///
     /// let that: These<&str, i8> = These::That(42);
-    /// assert_eq!(that.these_option(), None);
+    /// assert_eq!(that.these(), None);
     ///
     /// let these: These<&str, i8> = These::These("Hello", 42);
-    /// assert_eq!(these.these_option(), Some(("Hello", 42)));
+    /// assert_eq!(these.these(), Some(("Hello", 42)));
     /// ```
     ///
     /// [`These`]: enum.These.html#variant.These
     /// [`Some`]: enum.Option.html#variant.Some
     /// [`None`]: enum.Option.html#variant.Some
-    pub fn these_option(self) -> Option<(T, U)>
+    pub fn these(self) -> Option<(T, U)>
     {
-        self.collapse_these(
-            |_| None,
-            |_| None,
-            |t, u| Some((t, u)),
-        )
+        if let These::These(t, u) = self {
+            Some((t, u))
+        } else {
+            None
+        }
     }
 
     /// Produce a [`Some`] if a [`This`] or [`These`] is found,
@@ -494,26 +493,25 @@ impl<T, U> These<T, U> {
     /// use these::These;
     ///
     /// let this: These<&str, i8> = These::This("Hello");
-    /// assert_eq!(this.here_option(), Some("Hello"));
+    /// assert_eq!(this.here(), Some("Hello"));
     ///
     /// let that: These<&str, i8> = These::That(42);
-    /// assert_eq!(that.here_option(), None);
+    /// assert_eq!(that.here(), None);
     ///
     /// let these: These<&str, i8> = These::These("Hello", 42);
-    /// assert_eq!(these.here_option(), Some("Hello"));
+    /// assert_eq!(these.here(), Some("Hello"));
     /// ```
     ///
     /// [`This`]: enum.These.html#variant.This
     /// [`These`]: enum.These.html#variant.These
     /// [`Some`]: enum.Option.html#variant.Some
     /// [`None`]: enum.Option.html#variant.Some
-    pub fn here_option(self) -> Option<T>
+    pub fn here(self) -> Option<T>
     {
-        self.collapse_these(
-            |t| Some(t),
-            |_| None,
-            |t, _| Some(t),
-        )
+        match self {
+            These::This(t) | These::These(t, _) => Some(t),
+            These::That(_) => None,
+        }
     }
 
     /// Produce a [`Some`] if a [`That`] or [`These`] is found,
@@ -525,26 +523,25 @@ impl<T, U> These<T, U> {
     /// use these::These;
     ///
     /// let this: These<&str, i8> = These::This("Hello");
-    /// assert_eq!(this.there_option(), None);
+    /// assert_eq!(this.there(), None);
     ///
     /// let that: These<&str, i8> = These::That(42);
-    /// assert_eq!(that.there_option(), Some(42));
+    /// assert_eq!(that.there(), Some(42));
     ///
     /// let these: These<&str, i8> = These::These("Hello", 42);
-    /// assert_eq!(these.there_option(), Some(42));
+    /// assert_eq!(these.there(), Some(42));
     /// ```
     ///
     /// [`That`]: enum.These.html#variant.That
     /// [`These`]: enum.These.html#variant.These
     /// [`Some`]: enum.Option.html#variant.Some
     /// [`None`]: enum.Option.html#variant.Some
-    pub fn there_option(self) -> Option<U>
+    pub fn there(self) -> Option<U>
     {
-        self.collapse_these(
-            |_| None,
-            |u| Some(u),
-            |_, u| Some(u),
-        )
+        match self {
+            These::That(u) | These::These(_, u) => Some(u),
+            These::This(_) => None,
+        }
     }
 
     /// Is it [`This`]?
@@ -565,9 +562,13 @@ impl<T, U> These<T, U> {
     /// ```
     ///
     /// [`This`]: enum.These.html#variant.This
-    pub fn is_this(self) -> bool
+    pub fn is_this(&self) -> bool
     {
-        self.this_option().is_some()
+        if let These::This(_) = self {
+            true
+        } else {
+            false
+        }
     }
 
     /// Is it [`That`]?
@@ -588,9 +589,13 @@ impl<T, U> These<T, U> {
     /// ```
     ///
     /// [`That`]: enum.These.html#variant.That
-    pub fn is_that(self) -> bool
+    pub fn is_that(&self) -> bool
     {
-        self.that_option().is_some()
+        if let These::That(_) = self {
+            true
+        } else {
+            false
+        }
     }
 
     /// Is it [`These`]?
@@ -611,9 +616,13 @@ impl<T, U> These<T, U> {
     /// ```
     ///
     /// [`These`]: enum.These.html#variant.These
-    pub fn is_these(self) -> bool
+    pub fn is_these(&self) -> bool
     {
-        self.these_option().is_some()
+        if let These::These(_, _) = self {
+            true
+        } else {
+            false
+        }
     }
 
     /// Is it `Here`, i.e. [`This`] or [`These`]?
@@ -635,9 +644,12 @@ impl<T, U> These<T, U> {
     ///
     /// [`This`]: enum.These.html#variant.This
     /// [`These`]: enum.These.html#variant.These
-    pub fn is_here(self) -> bool
+    pub fn is_here(&self) -> bool
     {
-        self.here_option().is_some()
+        match self {
+            These::That(_) => false,
+            _ => true,
+        }
     }
 
     /// Is it `There`, i.e. [`That`] or [`These`]?
@@ -659,9 +671,12 @@ impl<T, U> These<T, U> {
     ///
     /// [`That`]: enum.These.html#variant.That
     /// [`These`]: enum.These.html#variant.These
-    pub fn is_there(self) -> bool
+    pub fn is_there(&self) -> bool
     {
-        self.there_option().is_some()
+        match self {
+            These::This(_) => false,
+            _ => true,
+        }
     }
 
     /// When given a [`Vec`] of [`These`](enum.These.hmtl) it will split it into
