@@ -9,17 +9,17 @@
 //! enum These<T, U> {
 //!     This(T),
 //!     That(U),
-//!     These(T, U)
+//!     Both(T, U)
 //! }
 //! ```
 //!
 //! We have three constructors [`This`] which holds a `T`, [`That`] which holds a `U`,
-//! and [`These`] which holds both.
+//! and [`Both`] which holds both.
 //!
 //! # Here and There
 //!
 //! If we want to talk about all `T`s we use the terminology `Here`. So this
-//! means we either have a [`This`] or [`These`]. Or in code:
+//! means we either have a [`This`] or [`Both`]. Or in code:
 //!
 //! ```
 //! use these::These;
@@ -30,7 +30,7 @@
 //! ```
 //!
 //! If we want to talk about all `U`s we use the terminology `There`. So this
-//! means we either have a [`That`] or [`These`]. Or in code
+//! means we either have a [`That`] or [`Both`]. Or in code
 //!
 //! ```
 //! use these::These;
@@ -127,7 +127,7 @@
 //! [`These`]: enum.These.html
 //! [`This`]: enum.These.html#variant.This
 //! [`That`]: enum.These.html#variant.That
-//! [`These`]: enum.These.html#variant.These
+//! [`These`]: enum.These.html#variant.Both
 
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug, Hash)]
 pub enum These<T, U> {
