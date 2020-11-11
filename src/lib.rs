@@ -166,7 +166,7 @@ impl<T, U> These<T, U> {
         }
     }
 
-    /// Convert from `&These<T, U>` to `These<&mut T, &mut U>`.
+    /// Convert from `&mut These<T, U>` to `These<&mut T, &mut U>`.
     /// Produce a new `These`, containing references to the original values.
     ///
     /// # Examples
