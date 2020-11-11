@@ -130,16 +130,72 @@
 //! [`That`]: enum.These.html#variant.That
 //! [`These`]: enum.These.html#variant.These
 
-
-
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug, Hash)]
 pub enum These<T, U> {
     This(T),
     That(U),
-    These(T, U)
+    These(T, U),
 }
 
 impl<T, U> These<T, U> {
+    /// Convert from `&These<T, U>` to `These<&T, &U>`.
+    /// Produce a new `These`, containing references to the original values.
+    ///
+    /// # Examples
+    /// ```
+    /// use these::These;
+    ///
+    /// let this: These<_, u32> = These::This(String::from("Hello"));
+    /// assert_eq!(this.as_ref().this(), Some(&String::from("Hello")));
+    /// assert_eq!(this.as_ref().that(), None);
+    ///
+    /// let that: These<&str, _> = These::That(42);
+    /// let forty_two = that.as_ref().that();
+    /// assert_eq!(forty_two, Some(&42));
+    /// assert_eq!(that.this(), None);
+    ///
+    /// let these = These::These("Hello", 42);
+    /// assert_eq!(these.as_ref().here(), Some(&"Hello"));
+    /// assert_eq!(these.as_ref().there(), Some(&42));
+    /// ```
+    pub fn as_ref(&self) -> These<&T, &U> {
+        match *self {
+            These::This(ref t) => These::This(t),
+            These::That(ref u) => These::That(u),
+            These::These(ref t, ref u) => These::These(t, u),
+        }
+    }
+
+    /// Convert from `&mut These<T, U>` to `These<&mut T, &mut U>`.
+    /// Produce a new `These`, containing mutable references to the original values.
+    ///
+    /// # Examples
+    /// ```
+    /// use these::These;
+    ///
+    /// let mut this: These<_, u32> = These::This(String::from("Hello"));
+    /// let mut world = this.as_mut().this().unwrap();
+    /// world.push_str(" World!");
+    /// assert_eq!(this.as_mut().this(), Some(&mut String::from("Hello World!")));
+    /// assert_eq!(this.as_mut().that(), None);
+    ///
+    /// let mut that: These<&str, _> = These::That(42);
+    /// let forty_two = that.as_mut().that().unwrap();
+    /// *forty_two += 1;
+    /// assert_eq!(that.as_ref().that(), Some(&43));
+    /// assert_eq!(that.this(), None);
+    ///
+    /// let mut these = These::These("Hello", 42);
+    /// assert_eq!(these.as_mut().here(), Some(&mut "Hello"));
+    /// assert_eq!(these.as_mut().there(), Some(&mut 42));
+    /// ```
+    pub fn as_mut(&mut self) -> These<&mut T, &mut U> {
+        match *self {
+            These::This(ref mut t) => These::This(t),
+            These::That(ref mut u) => These::That(u),
+            These::These(ref mut t, ref mut u) => These::These(t, u),
+        }
+    }
 
     /// Collapse a [`These`](enum.These.html) value given a set of three functions to
     /// some target type.
