@@ -608,11 +608,7 @@ impl<T, U> These<T, U> {
     ///
     /// [`This`]: enum.These.html#variant.This
     pub fn is_this(&self) -> bool {
-        if let Self::This(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::This(_))
     }
 
     /// Is it [`That`]?
@@ -634,11 +630,7 @@ impl<T, U> These<T, U> {
     ///
     /// [`That`]: enum.These.html#variant.That
     pub fn is_that(&self) -> bool {
-        if let Self::That(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::That(_))
     }
 
     /// Is it [`These`]?
@@ -660,11 +652,7 @@ impl<T, U> These<T, U> {
     ///
     /// [`These`]: enum.These.html#variant.These
     pub fn is_these(&self) -> bool {
-        if let Self::Both(_, _) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Self::Both(_, _))
     }
 
     /// Is it `Here`, i.e. [`This`] or [`These`]?
@@ -687,10 +675,7 @@ impl<T, U> These<T, U> {
     /// [`This`]: enum.These.html#variant.This
     /// [`These`]: enum.These.html#variant.These
     pub fn is_here(&self) -> bool {
-        match self {
-            Self::That(_) => false,
-            _ => true,
-        }
+        !matches!(self, Self::That(_))
     }
 
     /// Is it `There`, i.e. [`That`] or [`These`]?
@@ -713,10 +698,7 @@ impl<T, U> These<T, U> {
     /// [`That`]: enum.These.html#variant.That
     /// [`These`]: enum.These.html#variant.These
     pub fn is_there(&self) -> bool {
-        match self {
-            Self::This(_) => false,
-            _ => true,
-        }
+        !matches!(self, Self::This(_))
     }
 
     /// When given a [`Vec`] of [`These`](enum.These.hmtl) it will split it into
