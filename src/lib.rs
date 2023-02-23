@@ -35,7 +35,7 @@
 //! ```
 //! use these::These;
 //!
-//! fn is_here<T: Copy, U: Copy>(these: These<T, U>) -> bool {
+//! fn is_there<T: Copy, U: Copy>(these: These<T, U>) -> bool {
 //!     these.is_that() || these.is_these()
 //! }
 //! ```
